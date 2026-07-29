@@ -1,16 +1,14 @@
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
-    environment: str = "development"
+    model_config = SettingsConfigDict(env_prefix="FRAUD_", env_file=".env")
+    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = "postgresql+asyncpg://fraud:fraudpass@localhost:5432/fraud_db"
+    detection_threshold: float = 0.5
+    anomaly_contamination: float = 0.01
+    batch_max_size: int = 1000
     log_level: str = "INFO"
-    mlflow_tracking_uri: str = "http://localhost:5000"
-
-    @property
-    def database_url(self) -> str:
-        return "postgresql+asyncpg://mluser:mlpassword@localhost:5432/ml_db"
 
 @lru_cache
 def get_settings() -> Settings:

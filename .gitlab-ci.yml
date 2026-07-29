@@ -1,43 +1,55 @@
 stages:
   - lint
   - test
+  - security
   - build
-
-variables:
-  DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
 
 lint:
   stage: lint
   image: python:3.11-slim
   before_script:
-    - pip install poetry==1.8.3
-    - poetry install --only dev
+    - pip install --quiet poetry==1.8.3
+    - poetry install --only dev --no-root
   script:
-    - poetry run black --check src/ tests/
     - poetry run ruff check src/ tests/
-  only: [merge_requests, main]
+    - poetry run black --check src/ tests/
+  rules: [if: $CI_PIPELINE_SOURCE == "merge_request_event", if: $CI_COMMIT_BRANCH == "main"]
 
 test:
   stage: test
   image: python:3.11-slim
-  services: [postgres:16-alpine]
+  services:
+    - name: postgres:16-alpine
+      alias: db
   variables:
-    POSTGRES_DB: ml_fraud_detection_test
-    POSTGRES_USER: mluser
-    POSTGRES_PASSWORD: mlpassword
+    POSTGRES_DB: fraud_test
+    POSTGRES_USER: fraud
+    POSTGRES_PASSWORD: testpass
   before_script:
-    - apt-get update && apt-get install -y libpq-dev
-    - pip install poetry==1.8.3
-    - poetry install --with dev
+    - apt-get update -qq && apt-get install -y -qq libpq-dev
+    - pip install --quiet poetry==1.8.3
+    - poetry install --with dev --no-root
   script:
-    - poetry run pytest tests/ --cov=src -v
-  only: [merge_requests, main]
+    - poetry run pytest tests/ -v --cov=src --cov-report=term-missing
+  rules: [if: $CI_PIPELINE_SOURCE == "merge_request_event", if: $CI_COMMIT_BRANCH == "main"]
+
+security:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - pip install --quiet bandit safety
+  script:
+    - bandit -r src/ -ll
+    - safety check
+  rules: [if: $CI_COMMIT_BRANCH == "main"]
 
 build:
   stage: build
-  image: docker:27-dind
-  services: [docker:27-dind]
+  image: docker:24-dind
+  services: [docker:24-dind]
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
   script:
-    - docker build -t $DOCKER_IMAGE .
-    - docker push $DOCKER_IMAGE
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
   only: [main]
