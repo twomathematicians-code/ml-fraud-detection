@@ -1,0 +1,46 @@
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from src.utils.logging import get_logger, setup_logging
+
+logger = get_logger(__name__)
+
+class PredictionRequest(BaseModel):
+    features: dict = Field(..., description="Input features for prediction")
+
+class PredictionResponse(BaseModel):
+    prediction: str
+    probability: float
+    model_name: str = "ml-fraud-detection"
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class HealthResponse(BaseModel):
+    status: str = "healthy"
+    model: str = "ml-fraud-detection"
+    version: str = "1.0.0"
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging()
+    logger.info("Starting ml-fraud-detection API")
+    yield
+    logger.info("Shutting down ml-fraud-detection API")
+
+app = FastAPI(
+    title="Fraud Detection API",
+    description="Fraud Detection API — production ML API with Docker & CI/CD",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+@app.get("/api/v1/health", response_model=HealthResponse, tags=["System"])
+async def health() -> HealthResponse:
+    return HealthResponse()
+
+@app.post("/api/v1/predict", response_model=PredictionResponse, tags=["Prediction"])
+async def predict(request: PredictionRequest) -> PredictionResponse:
+    logger.info("Prediction requested with %d features", len(request.features))
+    return PredictionResponse(prediction="ok", probability=0.95)
