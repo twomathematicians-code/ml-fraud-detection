@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ml-fraud-detection"
+name = "fraud-detection"
 version = "2.0.0"
 description = "Real-time fraud detection engine with XGBoost ensemble, Isolation Forest anomaly detection, and Redis caching for sub-20ms scoring."
 authors = ["Mahesh Pravinsinh Solanki <maheshsinh1910@gmail.com>"]
