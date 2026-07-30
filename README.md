@@ -59,6 +59,28 @@ curl -X POST http://localhost:8000/api/v1/score/batch \
 | `/api/v1/stats/dashboard` | GET | Fraud statistics dashboard |
 | `/api/v1/health` | GET | System health + model status |
 
+## 🧬 Pipeline Architecture
+
+```mermaid
+graph LR
+    TX[Transaction] --> API[FastAPI :8000]
+    API --> CACHE{Redis Cache}
+    CACHE -->|hit| SCORE[Return Score]
+    CACHE -->|miss| MODEL[XGBoost + Isolation Forest]
+    MODEL --> REDIS[Update Cache]
+    REDIS --> SCORE
+    SCORE --> ALERT{Risk Level}
+    ALERT -->|critical| BLOCK[Block + Alert]
+    ALERT -->|high| FLAG[Flag for Review]
+    ALERT -->|low| ALLOW[Allow]
+    API --> PG[PostgreSQL Audit Trail]
+    MODEL --> MLFLOW[MLflow Tracking]
+
+    style API fill:#009688,color:#fff
+    style MODEL fill:#06b6d4,color:#fff
+    style BLOCK fill:#ef4444,color:#fff
+```
+
 ## 🏗️ Infrastructure
 
 | Service | Purpose |
